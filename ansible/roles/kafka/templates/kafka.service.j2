@@ -1,0 +1,18 @@
+[Unit]
+Description=Apache Kafka Server
+Documentation=http://kafka.apache.org/documentation.html
+# 네트워크와 원격 파일 시스템이 준비된 후 실행
+Requires=network.target remote-fs.target
+After=network.target remote-fs.target
+
+[Service]
+Type=simple
+User=root
+# Kafka 실행 및 설정 파일 지정
+ExecStart={{ kafka_install_dir }}/bin/kafka-server-start.sh {{ kafka_install_dir }}/config/kraft/server.properties
+ExecStop={{ kafka_install_dir }}/bin/kafka-server-stop.sh
+Restart=on-failure
+
+[Install]
+# 멀티 유저 모드(일반적인 부팅 상태)에서 자동 실행 등록
+WantedBy=multi-user.target

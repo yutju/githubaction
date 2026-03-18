@@ -1,0 +1,8 @@
+---
+kafka_version: "3.9.2"                 # kafka 버전 
+kafka_scala_version: "2.12"
+kafka_install_dir: "/opt/kafka"        # kafka 프로그램 설치 위치
+kafka_data_dir: "/var/lib/kafka"       # 메시지 데이터 저장 위치 
+kafka_log_dir: "/var/log/kafka"        # kafka 로그 저장 위치 
+# KRaft 모드에 필요한 클러스터 ID (실무에선 Vault로 관리 권장)
+kafka_cluster_id: "MkU3OEVBNTcwNTJENDM2Qk"

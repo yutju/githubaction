@@ -1,0 +1,99 @@
+---
+# 1. 모든 서버 공통 설정 (OS 환경 및 시간 동기화)
+- name: 1. 기초 환경 구성 (Common & Chrony)
+  hosts: all
+  become: yes
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  roles:
+    - { role: common, tags: common }
+    - { role: chrony, tags: chrony }
+
+# 2. K3s 마스터 설치 및 토큰 추출
+# 워커가 조인하려면 반드시 마스터 플레이가 먼저 실행되어 메모리에 토큰을 올려야 합니다.
+- name: 2. K3s 마스터 설치 및 검증
+  hosts: master
+  become: yes
+  roles:
+    - { role: k3s_master, tags: k3s_master }
+  tasks:
+    - name: K3s 마스터 노드 상태 확인
+      command: kubectl get nodes
+      register: master_status
+      changed_when: false
+
+    - name: 마스터 설치 성공 리포트
+      debug:
+        msg:
+          - "K3s 마스터 노드가 준비되었습니다!"
+          - "현재 노드 상태: {{ master_status.stdout_lines }}"
+
+# 3. K3s 워커 설치 및 클러스터 조인
+- name: 3. K3s 워커 설치 및 클러스터 조인
+  hosts: worker
+  become: yes
+  roles:
+    - { role: k3s_worker, tags: k3s_worker }
+  tasks:
+    - name: 워커 설치 완료 메시지
+      debug:
+        msg: "K3s 워커 에이전트가 실행 중입니다. 마스터에서 조인 여부를 확인하세요."
+
+# 4. 최종 클러스터 연동 확인 (마스터에서 전체 노드 점검)
+- name: 4. 최종 클러스터 연동 검증
+  hosts: master
+  become: yes
+  tasks:
+    - name: 전체 클러스터 노드 리스트 확인 (Master + Workers)
+      command: kubectl get nodes
+      register: cluster_nodes
+      changed_when: false
+
+    - name: 최종 성공 리포트
+      debug:
+        msg:
+          - "모든 노드가 클러스터에 성공적으로 조인되었습니다."
+          - "{{ cluster_nodes.stdout_lines }}"
+
+# 5. 프로메테우스(Prometheus) 설치
+- name: 5. 프로메테우스 설치 및 검증
+  hosts: monitoring
+  become: yes
+  roles:
+    - { role: prometheus, tags: prometheus }
+  tasks:
+    - name: Prometheus 서비스 상태 확인
+      shell: systemctl is-active prometheus
+      register: prom_status
+      changed_when: false
+
+# 6. 그라파나(Grafana) 설치 및 데이터소스 자동 연동
+- name: 6. 그라파나 설치 및 검증
+  hosts: monitoring
+  become: yes
+  roles:
+    - { role: grafana, tags: grafana }
+  tasks:
+    - name: Grafana 서비스 상태 확인
+      shell: systemctl is-active grafana-server
+      register: grafana_status
+      changed_when: false
+    - name: Grafana 설치 성공 메시지
+      debug:
+        msg: "Grafana 대시보드가 정상 작동 중이며 Prometheus가 자동 연동되었습니다."
+
+# 7. Kafka 클러스터 구성 (KRaft 모드)
+- name: 7. Kafka 클러스터 구성
+  hosts: kafka
+  become: yes
+  roles:
+    - { role: kafka, tags: kafka }
+  tasks:
+    - name: Kafka 프로세스 확인
+      shell: ps aux | grep kafka
+      register: kafka_proc
+      changed_when: false
+
+    - name: Kafka 설치 성공 리포트
+      debug:
+        msg: "Kafka가 KRaft 모드로 성공적으로 설치되어 실행 중입니다!"

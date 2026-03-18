@@ -1,0 +1,56 @@
+---
+# 1. 설치에 필요한 의존성 패키지 설치
+- name: Install dependencies
+  apt:
+    name:
+      - apt-transport-https
+      - software-properties-common
+      - wget
+    state: present
+
+# 2. 그라파나 공식 GPG 키 추가
+- name: Add Grafana GPG key
+  apt_key:
+    url: https://apt.grafana.com/gpg.key
+    state: present
+
+# 3. 그라파나 저장소(Repository) 등록
+- name: Add Grafana repository
+  apt_repository:
+    repo: "deb https://apt.grafana.com stable main"
+    state: present
+
+# 4. 그라파나 패키지 설치
+- name: Install Grafana
+  apt:
+    name: "{{ grafana_package }}"
+    state: present
+    update_cache: yes
+  notify:
+    - daemon-reload
+    - restart grafana service
+
+# 5. [추가] 프로메테우스 데이터소스 자동 연동 (Provisioning)
+# /etc/grafana/provisioning/datasources/ 경로에 파일을 두면 실행 시 자동 인식합니다.
+- name: Grafana 데이터소스 자동 연동 설정 (Prometheus)
+  template:
+    src: datasource.yml.j2
+    dest: /etc/grafana/provisioning/datasources/prometheus.yml
+    owner: root
+    group: grafana
+    mode: '0640'
+  notify: restart grafana service
+
+# 6. 그라파나 서비스 활성화 및 시작
+- name: Ensure Grafana is started and enabled
+  systemd:
+    name: "{{ grafana_service }}"
+    state: started
+    enabled: yes
+
+# 7. 서비스 정상 가동 대기 (3000번 포트 확인)
+- name: Wait for Grafana to start
+  wait_for:
+    port: 3000
+    delay: 5
+    timeout: 30

@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s            # 기본 15초인데 인스턴스 스펙때문에 오류 생기면 30초로 수정해야됨 
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # K3s 모든 노드들의 메트릭을 수집하기 위한 설정 (Node Exporter용)
+  - job_name: 'k3s-nodes'
+    static_configs:
+      - targets:
+        {% for host in groups['all'] %}
+        - "{{ hostvars[host]['ansible_host'] }}:9100"
+        {% endfor %}

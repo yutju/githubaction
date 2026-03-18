@@ -1,13 +1,43 @@
 # ============================================================
+# 앤서블용 IAM Role 설정 추가
+# ============================================================
+data "aws_iam_policy_document" "ec2_assume_role" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["ec2.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "ansible_role" {
+  name               = "sixsense-ansible-role"
+  assume_role_policy = data.aws_iam_policy_document.ec2_assume_role.json
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_readonly" {
+  role       = aws_iam_role.ansible_role.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonEC2ReadOnlyAccess"
+}
+
+resource "aws_iam_instance_profile" "ansible_profile" {
+  name = "sixsense-ansible-profile"
+  role = aws_iam_role.ansible_role.name
+}
+
+# ============================================================
 # Bastion Host (Public 서브넷)
 # ============================================================
 resource "aws_instance" "bastion" {
   ami                         = var.ami_id
   instance_type               = var.instance_type
-  subnet_id                   = aws_subnet.public_subnet.id
+  subnet_id                   = aws_subnet.public_subnet_a.id
   vpc_security_group_ids      = [aws_security_group.bastion_sg.id]
   key_name                    = var.key_name
   associate_public_ip_address = true
+  iam_instance_profile        = aws_iam_instance_profile.ansible_profile.name
+  private_ip = var.bastion_private_ip
 
   tags = {
     Name    = "Bastion-Host"
@@ -22,11 +52,12 @@ resource "aws_instance" "bastion" {
 resource "aws_instance" "nat_instance" {
   ami                    = var.ami_id
   instance_type          = var.instance_type
-  subnet_id              = aws_subnet.public_subnet.id
+  subnet_id              = aws_subnet.public_subnet_a.id
   vpc_security_group_ids = [aws_security_group.nat_sg.id]
   key_name               = var.key_name
-
   source_dest_check = false
+  iam_instance_profile   = aws_iam_instance_profile.ansible_profile.name 
+  private_ip = var.nat_private_ip
 
   user_data = <<-EOF
     #!/bin/bash
@@ -56,6 +87,8 @@ resource "aws_instance" "k3s_master" {
   subnet_id              = aws_subnet.private_subnet_1.id
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   key_name               = var.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ansible_profile.name
+  private_ip = var.k3s_master_private_ip
 
   depends_on = [aws_instance.nat_instance]
 
@@ -73,6 +106,8 @@ resource "aws_instance" "k3s_worker" {
   subnet_id              = aws_subnet.private_subnet_1.id
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   key_name               = var.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ansible_profile.name
+  private_ip = var.k3s_worker_private_ip
 
   depends_on = [aws_instance.k3s_master]
 
@@ -90,16 +125,18 @@ resource "aws_instance" "k3s_worker" {
 # Kafka 전용 서버
 resource "aws_instance" "kafka_server" {
   ami                    = var.ami_id
-  instance_type          = "t3.small"
+  instance_type          = var.instance_type
   subnet_id              = aws_subnet.private_subnet_2.id
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   key_name               = var.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ansible_profile.name
+  private_ip = var.kafka_private_ip
 
   depends_on = [aws_instance.nat_instance]
 
   tags = {
     Name    = "Kafka-Server"
-    Role    = "kafka"       # Ansible 그룹: @kafka
+    Role    = "kafka"       
     Project = "SixSense"
   }
 }
@@ -107,16 +144,18 @@ resource "aws_instance" "kafka_server" {
 # Grafana 모니터링 서버
 resource "aws_instance" "grafana_server" {
   ami                    = var.ami_id
-  instance_type          = "t3.small"
+  instance_type          = var.instance_type
   subnet_id              = aws_subnet.private_subnet_2.id
   vpc_security_group_ids = [aws_security_group.private_sg.id]
   key_name               = var.key_name
+  iam_instance_profile   = aws_iam_instance_profile.ansible_profile.name
+  private_ip = var.grafana_private_ip
 
   depends_on = [aws_instance.nat_instance]
 
   tags = {
     Name    = "Grafana-Server"
-    Role    = "monitoring"  # Ansible 그룹: @monitoring
+    Role    = "monitoring"  
     Project = "SixSense"
   }
 }
@@ -135,6 +174,8 @@ resource "aws_db_subnet_group" "rds_sg_group" {
 }
 
 resource "aws_db_instance" "rds_instance" {
+  identifier             = "sixsense-rds"
+
   allocated_storage      = 20
   engine                 = "mysql"
   engine_version         = "8.0"

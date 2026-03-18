@@ -1,0 +1,8 @@
+---
+chrony_package: "chrony"
+chrony_service: "chrony"
+
+chrony_ntp_servers:
+  - "169.254.169.123"      # AWS EC2 전용 NTP 서버를 최우선으로 설정
+  - "0.kr.pool.ntp.org"
+  - "1.kr.pool.ntp.org"

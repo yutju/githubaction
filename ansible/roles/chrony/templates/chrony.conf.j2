@@ -1,0 +1,14 @@
+# 1순위(prefer): 가장 빠르고 정확한 내부 서버로 구성함
+server 169.254.169.123 iburst prefer
+
+# 2순위: Amazon의 외부 공공 NTP 서버 (백업용) 1순위 문제시 백업용
+server time.aws.com iburst
+
+# 3순위: 기타 공용 풀 
+{% for server in chrony_ntp_servers %}
+server {{ server }} iburst
+{% endfor %}
+
+driftfile /var/lib/chrony/chrony.drift
+makestep 1.0 3
+rtcsync

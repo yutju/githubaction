@@ -1,0 +1,9 @@
+---
+prometheus_version: "2.51.0"  # 멱등성을 유지하면서 버전을 쉽게 바꿀 수 있게 기본값 설정
+prometheus_user: "prometheus"
+prometheus_group: "prometheus"
+prometheus_install_dir: "/usr/local/bin"
+prometheus_config_dir: "/etc/prometheus"
+prometheus_db_dir: "/var/lib/prometheus"
+
+

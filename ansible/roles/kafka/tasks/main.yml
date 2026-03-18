@@ -1,0 +1,63 @@
+---
+# 1. 자바 설치 (Kafka 실행 필수 요건)
+- name: Kafka 서버 전용 자바 설치
+  apt:
+    name: openjdk-17-jdk
+    state: present
+  tags: [ kafka, java ]
+
+# 2. 필요한 디렉토리 생성
+- name: Kafka 설치 및 데이터 경로 생성
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - "{{ kafka_install_dir }}"
+    - "{{ kafka_data_dir }}"
+    - "{{ kafka_log_dir }}"
+
+# 3. 바이너리 다운로드 (이미 있으면 건너뜀)
+- name: Kafka 바이너리 다운로드 및 압축 해제
+  unarchive:
+    src: "https://archive.apache.org/dist/kafka/{{ kafka_version }}/kafka_{{ kafka_scala_version }}-{{ kafka_version }}.tgz"
+    dest: "{{ kafka_install_dir }}"
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+    creates: "{{ kafka_install_dir }}/bin/kafka-server-start.sh"
+
+# 4. KRaft 설정 핵심 파라미터 업데이트 (중요!)
+# 앤서블이 각 서버의 사설 IP(ansible_host)를 자동으로 리스너에 주입합니다.
+- name: KRaft server.properties 설정 업데이트
+  lineinfile:
+    path: "{{ kafka_install_dir }}/config/kraft/server.properties"
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+  with_items:
+    - { regexp: "^node.id=", line: "node.id={{ kafka_node_id | default(1) }}" }
+    - { regexp: "^log.dirs=", line: "log.dirs={{ kafka_data_dir }}" }
+    - { regexp: "^listeners=", line: "listeners=PLAINTEXT://:9092,CONTROLLER://:9093" }
+    - { regexp: "^advertised.listeners=", line: "advertised.listeners=PLAINTEXT://{{ ansible_host }}:9092" }
+  notify: restart kafka service
+
+# 5. 스토리지 포맷 (최초 1회만 실행됨)
+- name: Kafka 저장소 포맷 (KRaft 모드 초기화)
+  command:
+    cmd: "{{ kafka_install_dir }}/bin/kafka-storage.sh format -t {{ kafka_cluster_id }} -c {{ kafka_install_dir }}/config/kraft/server.properties"
+    creates: "{{ kafka_data_dir }}/meta.properties"
+
+# 6. 시스템 서비스 등록
+- name: Kafka 서비스 파일 등록
+  template:
+    src: kafka.service.j2
+    dest: /etc/systemd/system/kafka.service
+  notify:
+    - daemon-reload
+    - restart kafka service
+
+# 7. 서비스 시작 및 활성화
+- name: Kafka 서비스 시작 및 활성화
+  systemd:
+    name: kafka
+    state: started
+    enabled: yes

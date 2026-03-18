@@ -39,3 +39,11 @@ output "rds_endpoint" {
   description = "RDS 접속 엔드포인트"
   value       = aws_db_instance.rds_instance.endpoint
 }
+
+# ============================================================
+# ALB 접속 도메인 주소
+# ============================================================
+output "alb_dns_name" {
+  description = "웹 서비스 접속용 로드밸런서(ALB) 도메인 주소"
+  value       = aws_lb.main_alb.dns_name
+}

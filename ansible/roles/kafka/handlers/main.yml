@@ -1,0 +1,11 @@
+---
+
+- name: daemon-reload
+  systemd:
+    daemon_reload: yes
+
+- name: restart kafka
+  systemd:
+    name: kafka
+    state: restarted
+  listen: "restart kafka service"  # 다른 롤에서도 이 이름을 불러서 재시작 가능

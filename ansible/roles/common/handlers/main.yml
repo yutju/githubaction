@@ -1,0 +1,7 @@
+---
+
+- name: restart systemd-timesyncd
+  service:
+    name: systemd-timesyncd
+    state: restarted
+  # 타임존 변경 후 실제 동기화 서비스를 재시작하여 즉시 반영.

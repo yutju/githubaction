@@ -1,0 +1,23 @@
+---
+# roles/common/tasks/main.yml
+
+- name: 패키지 리스트 캐시 업데이트
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  tags: [ "common", "update" ]
+
+- name: 필수 도구 설치 (timesyncd 제외)
+  apt:
+    name:
+      - curl
+      - vim
+      - net-tools
+      - software-properties-common
+    state: present
+  tags: [ "common", "tools" ]
+
+- name: 타임존 설정 (Asia/Seoul)
+  timezone:
+    name: Asia/Seoul
+  tags: [ "common", "timezone" ]

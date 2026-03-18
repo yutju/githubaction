@@ -1,0 +1,27 @@
+---
+- name: Update apt cache (Debian specific)
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install chrony package
+  apt:
+    name: "{{ chrony_package }}"
+    state: present
+
+- name: Configure chrony.conf from template
+  template:
+    src: chrony.conf.j2
+    dest: /etc/chrony/chrony.conf
+    owner: root
+    group: root
+    mode: '0644'
+  notify: 
+    - daemon-reload
+    - restart chrony
+
+- name: Ensure chrony is started and enabled
+  systemd:
+    name: "{{ chrony_service }}"
+    state: started
+    enabled: yes

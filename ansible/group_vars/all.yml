@@ -1,0 +1,15 @@
+# 1. SSH 접속 설정 (Bastion을 경유한 프라이빗 서브넷 접속용)
+ansible_user: ubuntu
+ansible_ssh_private_key_file: "../sixsense-test.pem"
+
+ansible_ssh_common_args: >
+  -o ProxyCommand="ssh -W %h:%p -q ubuntu@{{ groups['bastion'] | map('extract', hostvars, 'public_ip') | first }} -i {{ ansible_ssh_private_key_file }} -o StrictHostKeyChecking=no"
+
+# 2. AWS 공통 정보
+aws_region: "ap-northeast-2"
+
+
+#3. 그라파나가 접속할 프로메테우스의 주소 지정
+
+prometheus_host: "{{ groups['monitoring'][0] }}" # 모니터링 그룹의 첫 번째 서버
+prometheus_port: 9090
