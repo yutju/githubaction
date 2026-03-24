@@ -49,7 +49,7 @@ variable "instance_type" {
 
 variable "key_name" {
   description = "AWS 키페어 이름"
-  default     = "sixsense-test"
+  default     = "practice"
 }
 
 # ============================================================
