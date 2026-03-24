@@ -15,7 +15,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. AWS 인증 설정
+      # 2. 테라폼 설치 (이 단계가 추가되었습니다! 🎖️)
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.7.0" # 준수님의 로컬 버전과 맞추면 더 좋습니다.
+
+      # 3. AWS 인증 설정
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -23,34 +29,39 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      # 3. 테라폼 실행
+      # 4. 테라폼 실행
       - name: Terraform Init & Plan
         working-directory: ./terraform
         run: |
           terraform init
           terraform plan
-          # 실제 배포 시에는 아래 주석을 해제하세요!
+          # 실제 배포 준비가 되면 아래 주석을 해제하세요!
           # terraform apply -auto-approve
 
-      # 4. 앤서블 실행을 위한 의존성 및 SSH 키 설정 (추가됨 🎖️)
+      # 5. 앤서블 설치 및 SSH 설정 (설치 단계 강화 🎖️)
       - name: Setup Ansible and SSH
         run: |
-          # 4-1. AWS 동적 인벤토리 사용을 위한 Python 라이브러리 설치
+          # 5-1. 앤서블 및 AWS 관련 라이브러리 설치
+          sudo apt-get update
+          sudo apt-get install -y ansible
           pip install boto3 botocore
-          
-          # 4-2. SSH 개인 키 파일 생성 (Secrets에서 가져옴)
+
+          # 5-2. SSH 개인 키 파일 생성 (Secrets에서 가져옴)
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
-          # 4-3. SSH 접속 시 호스트 키 확인 생략 설정 (자동화 필수)
-          echo "host_key_checking = False" > ansible.cfg
+
+          # 5-3. SSH 접속 설정 (ansible.cfg 자동 생성)
+          # 인프라 자동화 시 호스트 키 확인을 건너뛰도록 설정합니다.
+          echo "[defaults]" > ansible.cfg
+          echo "host_key_checking = False" >> ansible.cfg
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # 5. 앤서블 실행 (동적 인벤토리 적용)
+      # 6. 앤서블 실행
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          # 인벤토리 파일 경로를 프로젝트 구조에 맞춰 확인하세요 (inventory/aws_ec2.yml)
+          # 앤서블 설정 파일(ansible.cfg)이 있는 경로를 환경변수로 잡아주면 좋습니다.
+          export ANSIBLE_CONFIG=$GITHUB_WORKSPACE/ansible.cfg
           ansible-playbook -i inventory/aws_ec2.yml site.yml
