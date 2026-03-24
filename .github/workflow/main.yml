@@ -1,0 +1,41 @@
+name: SixSense Infra Pipeline
+
+# 언제 이 파이프라인을 실행할 것인가?
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # GitHub 웹에서 버튼을 눌러 수동으로 실행할 수 있게 해줌
+
+jobs:
+  infra-deploy:
+    runs-on: ubuntu-latest # 가상의 우분투 컴퓨터(일꾼)를 띄움
+
+    steps:
+      # 1. 깃허브에서 내 코드 전체를 가상 컴퓨터로 다운로드(Checkout)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 2. AWS 인증 (테라폼이 AWS에 접근할 수 있도록 권한 부여)
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-northeast-2
+
+      # 3. 테라폼 실행 (반드시 terraform 폴더 안에서 실행되도록 지정!)
+      - name: Terraform Init & Plan
+        working-directory: ./terraform
+        run: |
+          terraform init
+          terraform plan
+          # 나중에 확신이 들면 아래 주석을 풀어서 apply를 자동화합니다.
+          # terraform apply -auto-approve
+
+      # 4. 앤서블 실행 (반드시 ansible 폴더 안에서 실행되도록 지정!)
+      - name: Run Ansible Playbook
+        working-directory: ./ansible
+        run: |
+          echo "테라폼 apply가 완료되면 여기서 앤서블 동적 인벤토리가 실행됩니다!"
+          # ansible-playbook -i inventory/aws_ec2.yml site.yml
