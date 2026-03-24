@@ -37,24 +37,29 @@ jobs:
           terraform plan
           terraform apply -auto-approve
 
-      # 5. 앤서블 설치 및 파이썬 의존성 해결 (핵심 수정 사항 🎖️)
+      # 5. 앤서블 설치 및 의존성 주입 (경로 최적화 🎖️)
       - name: Setup Ansible and SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
           
-          # 앤서블이 인식할 수 있도록 파이썬 모듈 직접 설치
+          # 앤서블이 사용하는 환경에 boto3 설치
           python3 -m pip install --upgrade pip
           python3 -m pip install boto3 botocore
 
+          # SSH 키 설정
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # 앤서블이 어떤 파이썬을 사용할지 ansible.cfg에 명시적으로 기록
-          echo "[defaults]" > ansible.cfg
-          echo "host_key_checking = False" >> ansible.cfg
-          echo "interpreter_python = /usr/bin/python3" >> ansible.cfg
+          # [핵심] 실행 폴더인 ./ansible 안에 ansible.cfg를 생성합니다.
+          # 이렇게 하면 앤서블이 실행될 때 이 파일을 1순위로 읽습니다.
+          cat <<EOF > ./ansible/ansible.cfg
+          [defaults]
+          host_key_checking = False
+          interpreter_python = /usr/bin/python3
+          inventory = ./inventory/aws_ec2.yml
+          EOF
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
@@ -62,6 +67,5 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          # 5번 단계에서 생성한 ansible.cfg를 환경변수로 연결
-          export ANSIBLE_CONFIG=$GITHUB_WORKSPACE/ansible.cfg
-          ansible-playbook -i inventory/aws_ec2.yml site.yml
+          # 이미 ./ansible 폴더 안에 설정파일이 있으므로 매우 심플해집니다.
+          ansible-playbook site.yml
