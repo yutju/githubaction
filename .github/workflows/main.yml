@@ -1,3 +1,4 @@
+you@DESKTOP-J7IFJ81:~/sixsense-test/.github/workflows$ cat main.yml 
 name: SixSense Infra Pipeline
 
 on:
@@ -42,7 +43,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
-          
+
           # [핵심] 앤서분 전용 가상환경(pipx) 내부에 boto3를 강제로 주입합니다.
           # 이 방법이 현재 발생하는 "Failed to import boto3" 에러를 잡는 유일한 정석입니다.
           pipx inject ansible-core boto3 botocore --include-apps
