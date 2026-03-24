@@ -11,17 +11,17 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 소스 코드 가져오기
+      # 1. 내 깃허브 코드를 가상 환경으로 가져오기
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2. 테라폼 설치 (이 단계가 추가되었습니다! 🎖️)
+      # 2. 테라폼 설치 (이 단계가 없어서 에러가 났던 겁니다! 🎖️)
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.7.0" # 준수님의 로컬 버전과 맞추면 더 좋습니다.
+          terraform_version: "1.7.0" # 로컬 버전과 맞추는 걸 추천해요.
 
-      # 3. AWS 인증 설정
+      # 3. AWS 인증 설정 (테라폼/앤서블이 AWS에 접속할 권한)
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -29,30 +29,29 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-northeast-2
 
-      # 4. 테라폼 실행
+      # 4. 테라폼 실행 (이제 command not found 에러가 안 날 거예요!)
       - name: Terraform Init & Plan
         working-directory: ./terraform
         run: |
           terraform init
           terraform plan
-          # 실제 배포 준비가 되면 아래 주석을 해제하세요!
-          # terraform apply -auto-approve
+          # 인프라 생성을 확신할 때 아래 주석을 해제하세요.
+          terraform apply -auto-approve
 
-      # 5. 앤서블 설치 및 SSH 설정 (설치 단계 강화 🎖️)
+      # 5. 앤서블 설치 및 SSH 설정 (설치 단계를 강화했습니다 🎖️)
       - name: Setup Ansible and SSH
         run: |
-          # 5-1. 앤서블 및 AWS 관련 라이브러리 설치
+          # 5-1. 앤서블 및 AWS 동적 인벤토리용 라이브러리 설치
           sudo apt-get update
           sudo apt-get install -y ansible
           pip install boto3 botocore
 
-          # 5-2. SSH 개인 키 파일 생성 (Secrets에서 가져옴)
+          # 5-2. SSH 개인 키 생성 (EC2 접속용)
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # 5-3. SSH 접속 설정 (ansible.cfg 자동 생성)
-          # 인프라 자동화 시 호스트 키 확인을 건너뛰도록 설정합니다.
+          # 5-3. SSH 접속 시 'Yes/No' 묻는 창 안 뜨게 설정
           echo "[defaults]" > ansible.cfg
           echo "host_key_checking = False" >> ansible.cfg
         env:
@@ -62,6 +61,6 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          # 앤서블 설정 파일(ansible.cfg)이 있는 경로를 환경변수로 잡아주면 좋습니다.
+          # 위에서 만든 ansible.cfg를 사용하도록 경로 지정
           export ANSIBLE_CONFIG=$GITHUB_WORKSPACE/ansible.cfg
           ansible-playbook -i inventory/aws_ec2.yml site.yml
