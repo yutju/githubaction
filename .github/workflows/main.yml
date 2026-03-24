@@ -37,7 +37,7 @@ jobs:
           terraform plan
           terraform apply -auto-approve
 
-      # 5. 앤서블 설치 및 의존성 주입 (필살기 🎖️)
+      # 5. 앤서블 설치 및 의존성 주입 (열쇠 경로 추가 🎖️)
       - name: Setup Ansible and SSH
         run: |
           sudo apt-get update
@@ -46,17 +46,20 @@ jobs:
           # pipx를 사용하여 앤서블 격리 환경에 boto3 주입
           pipx inject ansible-core boto3 botocore --include-apps --include-deps
 
-          # SSH 키 설정
+          # SSH 키 설정 (Secrets에서 가져와 가상머신 내부에 저장)
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # 실행 폴더 내에 설정 파일 생성
+          # 실행 폴더 내에 깃허브 액션 전용 설정 파일 생성
           cat <<EOF > ./ansible/ansible.cfg
           [defaults]
           host_key_checking = False
           interpreter_python = auto_silent
           inventory = ./inventory/aws_ec2.yml
+          # 앤서블이 엉뚱한 .pem 대신 우리가 방금 만든 id_rsa를 쓰도록 경로 고정 🎖️
+          private_key_file = /home/runner/.ssh/id_rsa
+          remote_user = ubuntu
           EOF
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
@@ -65,5 +68,5 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          # 이미 ./ansible/ansible.cfg에 인벤토리 설정이 포함되어 있음
+          # 이미 ./ansible/ansible.cfg에 모든 설정(열쇠, 인벤토리)이 포함되어 있음
           ansible-playbook site.yml
