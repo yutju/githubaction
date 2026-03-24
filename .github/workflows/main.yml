@@ -37,12 +37,12 @@ jobs:
           terraform plan
           terraform apply -auto-approve
 
-      # 5. 앤서블 설치 및 SSH 에이전트 설정 (핵심 수정 🎖️)
+      # 5. 앤서블 설치 및 SSH 설정 (ansible.cfg 자동 생성 🎖️)
       - name: Setup Ansible and SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
-          
+
           # 앤서블 격리 환경에 boto3 주입
           pipx inject ansible-core boto3 botocore --include-apps --include-deps
 
@@ -50,7 +50,7 @@ jobs:
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-          
+
           # [핵심] 앤서블 실행 폴더 내에 깃허브 액션 전용 설정 파일 생성
           cat <<EOF > ./ansible/ansible.cfg
           [defaults]
@@ -61,20 +61,20 @@ jobs:
           remote_user = ubuntu
 
           [ssh_connection]
-          # SSH 에이전트 포워딩을 활성화하여 인증 안정성을 높입니다.
+          # SSH 에이전트 포워딩을 활성화하여 배스천 호스트를 통한 인증 안정성을 높입니다.
           ssh_args = -o ControlMaster=auto -o ControlPersist=60s -o ForwardAgent=yes
           pipelining = True
           EOF
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      # 6. 앤서블 실행 (에이전트 활성화 포함)
+      # 6. 앤서블 실행 (문법 오류 수정 완료 🎖️)
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          # 1. SSH 에이전트 시작 및 키 등록
-          eval \$(ssh-agent -s)
+          # 1. SSH 에이전트 시작 및 키 등록 (역슬래시 제거)
+          eval $(ssh-agent -s)
           ssh-add /home/runner/.ssh/id_rsa
-          
+
           # 2. 앤서블 실행
           ansible-playbook site.yml
