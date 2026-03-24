@@ -37,27 +37,27 @@ jobs:
           terraform plan
           terraform apply -auto-approve
 
-      # 5. 앤서블 설치 및 의존성 주입 (경로 최적화 🎖️)
+      # 5. 앤서블 설치 및 '격리된 환경'에 의존성 주입 (필살기 🎖️)
       - name: Setup Ansible and SSH
         run: |
           sudo apt-get update
           sudo apt-get install -y ansible
           
-          # 앤서블이 사용하는 환경에 boto3 설치
-          python3 -m pip install --upgrade pip
-          python3 -m pip install boto3 botocore
+          # [핵심] 앤서분 전용 가상환경(pipx) 내부에 boto3를 강제로 주입합니다.
+          # 이 방법이 현재 발생하는 "Failed to import boto3" 에러를 잡는 유일한 정석입니다.
+          pipx inject ansible-core boto3 botocore --include-apps
 
           # SSH 키 설정
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
 
-          # [핵심] 실행 폴더인 ./ansible 안에 ansible.cfg를 생성합니다.
-          # 이렇게 하면 앤서블이 실행될 때 이 파일을 1순위로 읽습니다.
+          # 실행 폴더 내에 설정 파일 생성
           cat <<EOF > ./ansible/ansible.cfg
           [defaults]
           host_key_checking = False
-          interpreter_python = /usr/bin/python3
+          # 앤서블이 설치된 가상환경 내의 파이썬을 자동으로 쓰도록 설정
+          interpreter_python = auto_silent
           inventory = ./inventory/aws_ec2.yml
           EOF
         env:
@@ -67,5 +67,5 @@ jobs:
       - name: Run Ansible Playbook
         working-directory: ./ansible
         run: |
-          # 이미 ./ansible 폴더 안에 설정파일이 있으므로 매우 심플해집니다.
+          # 이미 ./ansible/ansible.cfg에 인벤토리 경로가 있으므로 실행만 하면 됩니다.
           ansible-playbook site.yml
